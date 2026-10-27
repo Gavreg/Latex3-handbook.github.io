@@ -149,6 +149,12 @@
       D.glossary.forEach(function (g) { h += '<a class="modlink" href="#/g/' + g.key + '" data-href="#/g/' + g.key + '">' + esc(g.title) + '</a>'; });
       h += '</details>';
     }
+    if (LESSONS.length) {
+      h += '<details class="lvl1"><summary><span>Уроки</span></summary>' +
+        '<a class="modlink" href="#/learn" data-href="#/learn">Все уроки</a>';
+      LESSONS.forEach(function (c, i) { h += '<a class="modlink" href="#/l/' + c.key + '" data-href="#/l/' + c.key + '">' + (i + 1) + '. ' + esc(c.title) + '</a>'; });
+      h += '</details>';
+    }
     if (D.cases && D.cases.length) {
       h += '<details class="lvl1"><summary><span>Разборы задач</span></summary>' +
         '<a class="modlink" href="#/cases" data-href="#/cases">Все разборы</a>';
@@ -553,6 +559,7 @@
       '<div class="stats"><span><b>' + D.entries.length + '</b>статей</span><span><b>' + D.chapters.length + '</b>модулей</span><span><b>' + nex + '</b>примеров</span><span><b>' + nok + '</b>проверено в LuaLaTeX</span></div>' +
       '<div class="quick">' +
       '<a href="#/" data-to="guide">' + I.book + '<div><b>Основы</b><span>Синтаксис expl3, имена и сигнатуры</span></div></a>' +
+      '<a href="#/learn">' + I.book + '<div><b>Уроки</b><span>Курс по шагам: от первой команды до своего пакета</span></div></a>' +
       '<a href="#/cases">' + I.check + '<div><b>Разборы задач</b><span>Решения без expl3 и с expl3 — бок о бок</span></div></a>' +
       '<a href="#/modules">' + I.grid + '<div><b>Модули</b><span>Все разделы interface3 по темам</span></div></a>' +
       '<a href="#/tex">' + I.help + '<div><b>Справка TeX</b><span>Раскрытие, коды категорий, регистры</span></div></a>' +
@@ -652,6 +659,38 @@
     render('<h1>Разборы задач</h1><p class="lead">Типовые задачи из подготовки учебных материалов. Каждая решена дважды — средствами классического LaTeX/TeX и на expl3, с комментариями к каждой строке и настоящим результатом компиляции. Так видно, что именно даёт expl3 и где он проще.</p>' +
       caseCards(), 'Разборы задач — справочник expl3', null, '#/cases');
   }
+  // ---------- уроки: учебный маршрут от первой программы до своего пакета ----------
+  var LESSONS = D.lessons || [], lessonByKey = {};
+  LESSONS.forEach(function (c) { lessonByKey[c.key] = c; });
+  function lessonCards() {
+    return '<div class="cases">' + LESSONS.map(function (c, i) {
+      return '<a class="case-card" href="#/l/' + c.key + '"><span class="case-n">' + (i + 1) + '</span><div><b>' + esc(c.title) + '</b>' +
+        (c.lead ? '<span class="case-lead">' + c.lead + '</span>' : '') +
+        (c.tags.length ? '<span class="case-tags">' + c.tags.map(function (t) { return '<code>' + esc(t) + '</code>'; }).join(' ') + '</span>' : '') +
+        '</div></a>';
+    }).join('') + '</div>';
+  }
+  function pageLessons() {
+    curExamples = [];
+    render('<h1>Уроки expl3</h1><p class="lead">Короткий курс по порядку: от первой команды до своего пакета. Каждый урок опирается на предыдущие и ссылается на статьи справочника. ' +
+      'Все примеры скомпилированы; кнопка <b>.tex</b> у примера скачивает готовый документ, который можно сразу собрать LuaLaTeX.</p>' +
+      lessonCards(), 'Уроки — справочник expl3', null, '#/learn');
+  }
+  function pageLesson(key) {
+    var c = lessonByKey[key];
+    if (!c) return pageNotFound();
+    curExamples = c.ex;
+    var k = LESSONS.indexOf(c);
+    var h = '<nav class="crumbs" aria-label="Путь"><a href="#/learn">Уроки</a><span class="sep" aria-hidden="true">/</span><span>Урок ' + (k + 1) + ' из ' + LESSONS.length + '</span></nav><h1>' + esc(c.title) + '</h1>' +
+      (c.lead ? '<p class="lead">' + c.lead + '</p>' : '') +
+      (c.tags.length ? '<div class="badges">' + c.tags.map(function (t) { return '<span class="badge">' + esc(t) + '</span>'; }).join('') + '</div>' : '');
+    h += c.html.replace(/<p>%%EX(\d+)%%<\/p>/g, function (all, n) { return c.ex[+n] ? exampleHtml(c.ex[+n], +n) : ''; });
+    if (c.notes.length) h += '<div class="notes" role="note"><span class="lbl">' + I.info + 'Примечание</span>' + c.notes.map(function (n) { return '<p>' + n + '</p>'; }).join('') + '</div>';
+    h += '<nav class="pager plain" aria-label="Соседние уроки">' + (k > 0 ? '<a href="#/l/' + LESSONS[k - 1].key + '"><span class="lbl">← Предыдущий урок</span>' + esc(LESSONS[k - 1].title) + '</a>' : '') +
+      (k < LESSONS.length - 1 ? '<a class="next" href="#/l/' + LESSONS[k + 1].key + '"><span class="lbl">Следующий урок →</span>' + esc(LESSONS[k + 1].title) + '</a>' : '') + '</nav>';
+    render(h, c.title + ' — уроки expl3', null, '#/l/' + key);
+  }
+
   function pageCase(key) {
     var c = caseByKey[key];
     if (!c) return pageNotFound();
@@ -814,7 +853,7 @@
 
   // активный пункт верхнего меню
   function markNav(hash) {
-    var k = /^#\/(m|e|modules)/.test(hash) ? 'modules' : /^#\/(g|tex)/.test(hash) ? 'tex' : /^#\/(c\/|cases)/.test(hash) ? 'cases' : hash === '#/index' || hash === '#/new' ? 'index' : 'home';
+    var k = /^#\/(m|e|modules)/.test(hash) ? 'modules' : /^#\/(g|tex)/.test(hash) ? 'tex' : /^#\/(c\/|cases)/.test(hash) ? 'cases' : /^#\/(l\/|learn)/.test(hash) ? 'learn' : hash === '#/index' || hash === '#/new' ? 'index' : 'home';
     document.querySelectorAll('.top-links a').forEach(function (a) {
       if (a.dataset.nav === k) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
@@ -828,6 +867,8 @@
     else if ((m = h.match(/^#\/m\/(\d+)(?:\/([\d.]+))?/))) pageModule(+m[1], m[2]);
     else if ((m = h.match(/^#\/g\/([\w-]+)/))) pageGlossaryItem(m[1]);
     else if ((m = h.match(/^#\/c\/([\w-]+)/))) pageCase(m[1]);
+    else if ((m = h.match(/^#\/l\/([\w-]+)/))) pageLesson(m[1]);
+    else if (h === '#/learn') pageLessons();
     else if (h === '#/cases') pageCases();
     else if (h === '#/tex') pageGlossary();
     else if (h === '#/modules') pageModules();
