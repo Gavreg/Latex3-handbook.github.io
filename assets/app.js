@@ -148,6 +148,12 @@
       D.glossary.forEach(function (g) { h += '<a class="modlink" href="#/g/' + g.key + '" data-href="#/g/' + g.key + '">' + esc(g.title) + '</a>'; });
       h += '</details>';
     }
+    if (D.cases && D.cases.length) {
+      h += '<details class="lvl1"><summary><span>Разборы задач</span></summary>' +
+        '<a class="modlink" href="#/cases" data-href="#/cases">Все разборы</a>';
+      D.cases.forEach(function (c) { h += '<a class="modlink" href="#/c/' + c.key + '" data-href="#/c/' + c.key + '">' + esc(c.title) + '</a>'; });
+      h += '</details>';
+    }
     D.parts.forEach(function (p) {
       h += '<div class="part">' + esc(p.title) + '</div>';
       p.chapters.forEach(function (n) {
@@ -533,6 +539,7 @@
       '<div class="stats"><span><b>' + D.entries.length + '</b>статей</span><span><b>' + D.chapters.length + '</b>модулей</span><span><b>' + nex + '</b>примеров</span><span><b>' + nok + '</b>проверено в LuaLaTeX</span></div>' +
       '<div class="quick">' +
       '<a href="#/" data-to="guide">' + I.book + '<div><b>Основы</b><span>Синтаксис expl3, имена и сигнатуры</span></div></a>' +
+      '<a href="#/cases">' + I.check + '<div><b>Разборы задач</b><span>Решения без expl3 и с expl3 — бок о бок</span></div></a>' +
       '<a href="#/modules">' + I.grid + '<div><b>Модули</b><span>Все разделы interface3 по темам</span></div></a>' +
       '<a href="#/tex">' + I.help + '<div><b>Справка TeX</b><span>Раскрытие, коды категорий, регистры</span></div></a>' +
       '<a href="#/index">' + I.list + '<div><b>Указатель</b><span>Все имена по алфавиту</span></div></a>' +
@@ -591,6 +598,38 @@
     var h = '<h1>Справка по TeX и LaTeX</h1><p class="lead">Понятия и примитивы TeX, на которые опирается expl3 и ссылается документация interface3. Здесь объяснено, «что под капотом».</p><table class="tbl fn-list"><tbody>';
     D.glossary.forEach(function (g) { h += '<tr><td><a href="#/g/' + g.key + '">' + esc(g.title) + '</a></td><td>' + esc(strip(g.html).slice(0, 170)) + '…</td></tr>'; });
     render(h + '</tbody></table>', 'Справка по TeX и LaTeX', null, '#/tex');
+  }
+
+  // ---------- разборы задач ----------
+  var CASES = D.cases || [], caseByKey = {};
+  CASES.forEach(function (c) { caseByKey[c.key] = c; });
+  function caseCards() {
+    return '<div class="cases">' + CASES.map(function (c, i) {
+      return '<a class="case-card" href="#/c/' + c.key + '"><span class="case-n">' + (i + 1) + '</span><div><b>' + esc(c.title) + '</b>' +
+        (c.lead ? '<span class="case-lead">' + c.lead + '</span>' : '') +
+        (c.tags.length ? '<span class="case-tags">' + c.tags.map(function (t) { return '<code>' + esc(t) + '</code>'; }).join(' ') + '</span>' : '') +
+        '</div></a>';
+    }).join('') + '</div>';
+  }
+  function pageCases() {
+    curExamples = [];
+    render('<h1>Разборы задач</h1><p class="lead">Типовые задачи из подготовки учебных материалов. Каждая решена дважды — средствами классического LaTeX/TeX и на expl3, с комментариями к каждой строке и настоящим результатом компиляции. Так видно, что именно даёт expl3 и где он проще.</p>' +
+      caseCards(), 'Разборы задач — справочник expl3', null, '#/cases');
+  }
+  function pageCase(key) {
+    var c = caseByKey[key];
+    if (!c) return pageNotFound();
+    curExamples = c.ex;
+    var h = '<nav class="crumbs" aria-label="Путь"><a href="#/cases">Разборы задач</a></nav><h1>' + esc(c.title) + '</h1>' +
+      (c.lead ? '<p class="lead">' + c.lead + '</p>' : '') +
+      (c.tags.length ? '<div class="badges">' + c.tags.map(function (t) { return '<span class="badge">' + esc(t) + '</span>'; }).join('') + '</div>' : '');
+    // метки %%EXn%% в тексте заменяются самими примерами
+    h += c.html.replace(/<p>%%EX(\d+)%%<\/p>/g, function (all, n) { return c.ex[+n] ? exampleHtml(c.ex[+n], +n) : ''; });
+    if (c.notes.length) h += '<div class="notes" role="note"><span class="lbl">' + I.info + 'Примечание</span>' + c.notes.map(function (n) { return '<p>' + n + '</p>'; }).join('') + '</div>';
+    var k = CASES.indexOf(c);
+    h += '<nav class="pager plain" aria-label="Соседние разборы">' + (k > 0 ? '<a href="#/c/' + CASES[k - 1].key + '"><span class="lbl">← Предыдущий разбор</span>' + esc(CASES[k - 1].title) + '</a>' : '') +
+      (k < CASES.length - 1 ? '<a class="next" href="#/c/' + CASES[k + 1].key + '"><span class="lbl">Следующий разбор →</span>' + esc(CASES[k + 1].title) + '</a>' : '') + '</nav>';
+    render(h, c.title + ' — разборы задач expl3', null, '#/c/' + key);
   }
 
   function pageNotFound() { curExamples = []; render('<h1>Страница не найдена</h1><p><a href="#/">На главную</a></p>', 'Не найдено'); }
@@ -730,7 +769,7 @@
 
   // активный пункт верхнего меню
   function markNav(hash) {
-    var k = /^#\/(m|e|modules)/.test(hash) ? 'modules' : /^#\/(g|tex)/.test(hash) ? 'tex' : hash === '#/index' ? 'index' : 'home';
+    var k = /^#\/(m|e|modules)/.test(hash) ? 'modules' : /^#\/(g|tex)/.test(hash) ? 'tex' : /^#\/(c\/|cases)/.test(hash) ? 'cases' : hash === '#/index' ? 'index' : 'home';
     document.querySelectorAll('.top-links a').forEach(function (a) {
       if (a.dataset.nav === k) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
@@ -743,6 +782,8 @@
     if ((m = h.match(/^#\/e\/([\w-]+)/))) pageEntry(m[1]);
     else if ((m = h.match(/^#\/m\/(\d+)(?:\/([\d.]+))?/))) pageModule(+m[1], m[2]);
     else if ((m = h.match(/^#\/g\/([\w-]+)/))) pageGlossaryItem(m[1]);
+    else if ((m = h.match(/^#\/c\/([\w-]+)/))) pageCase(m[1]);
+    else if (h === '#/cases') pageCases();
     else if (h === '#/tex') pageGlossary();
     else if (h === '#/modules') pageModules();
     else if (h === '#/index') pageIndex();
@@ -776,7 +817,14 @@
       return g.title.toLowerCase().indexOf(s) >= 0 || g.aliases.some(function (a) { return a.toLowerCase().indexOf(s) >= 0; }) || (s.length > 2 && g.plain.indexOf(s) >= 0);
     });
     hits.sort(function (a, b) { return b.sc - a.sc; });
+    var chits = (D.cases || []).filter(function (c) {
+      return (c.title + ' ' + strip(c.lead) + ' ' + c.tags.join(' ')).toLowerCase().indexOf(s) >= 0;
+    });
     var h = '';
+    if (chits.length) {
+      h += '<div class="r-head">Разборы задач · ' + chits.length + '</div>';
+      chits.forEach(function (c) { h += '<a href="#/c/' + c.key + '"><div class="r-name gl-name">' + mark(c.title, s) + '</div><div class="r-sub">' + esc(strip(c.lead).slice(0, 90)) + '</div></a>'; });
+    }
     if (ghits.length) {
       h += '<div class="r-head">Справка по TeX · ' + ghits.length + '</div>';
       ghits.slice(0, 8).forEach(function (g) { h += '<a href="#/g/' + g.key + '"><div class="r-name gl-name">' + mark(g.title, s) + '</div><div class="r-sub">' + esc(g.aliases.slice(0, 4).join(', ')) + '</div></a>'; });
@@ -787,14 +835,15 @@
         h += '<a href="#/e/' + x.e.id + '"><div class="r-name">' + mark(x.name, sNorm) + '</div><div class="r-sub">' + esc(chByNum[x.e.ch].module) + ' · ' + esc(firstSentence(x.e).slice(0, 90)) + '</div></a>';
       });
     }
-    if (!hits.length && !ghits.length) {
+    if (!hits.length && !ghits.length && !chits.length) {
       h += '<div class="r-empty"><b>Ничего не найдено</b> по запросу «' + esc(q.value.trim()) + '». Попробуйте:<ul>' +
         '<li>часть имени без сигнатуры: <code>tl_set</code>, <code>seq_map</code></li>' +
         '<li>русское слово из описания: «пробел», «регистр»</li>' +
         '<li>понятие TeX: <code>catcode</code>, «раскрытие»</li></ul></div>';
     }
     results.innerHTML = h; results.hidden = false; toc.hidden = true; sel = -1;
-    announce(hits.length + ghits.length ? 'Найдено: ' + (hits.length + ghits.length) : 'Ничего не найдено');
+    var nfound = hits.length + ghits.length + chits.length;
+    announce(nfound ? 'Найдено: ' + nfound : 'Ничего не найдено');
   }
   // подсветка совпадения в имени
   function mark(text, needle) {
