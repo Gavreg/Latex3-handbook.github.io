@@ -375,3 +375,11 @@ a.gl:hover { color: var(--accent); }
   .example, pre.code, .notes, .tbl-wrap { break-inside: avoid; box-shadow: none; }
   a { color: inherit; }
 }
+
+/* подвал страницы: ссылка на репозиторий */
+.site-foot { grid-column: 1 / -1; margin: 0; padding: 16px 0 0; border-top: 1px solid var(--border);
+  font-size: 14px; color: var(--muted); }
+.site-foot a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--muted); text-decoration: none; }
+.site-foot a:hover { color: var(--text); text-decoration: underline; }
+.site-foot svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+@media print { .site-foot { display: none; } }
