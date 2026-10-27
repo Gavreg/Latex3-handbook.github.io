@@ -11,6 +11,7 @@
     check: ico('<path d="M20 6 9 17l-5-5"/>'),
     x: ico('<path d="M18 6 6 18M6 6l12 12"/>'),
     minus: ico('<path d="M5 12h14"/>'),
+    down: ico('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'),
     copy: ico('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'),
     file: ico('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>'),
     info: ico('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
@@ -229,6 +230,7 @@
         '<button type="button" class="seg-btn" data-mode="frag" aria-pressed="true" title="Только команды примера">Фрагмент</button>' +
         '<button type="button" class="seg-btn" data-mode="doc" aria-pressed="false" title="Готовый .tex-документ целиком">' + I.file + 'Документ</button></span>') +
       '<button type="button" class="ex-btn" data-copy="1" aria-label="Копировать показанный код">' + I.copy + '<span class="t">Копировать</span></button>' +
+      '<button type="button" class="ex-btn" data-down="1" aria-label="Скачать готовый документ .tex" title="Готовый документ: откройте в редакторе и скомпилируйте LuaLaTeX">' + I.down + '<span class="t">.tex</span></button>' +
       '</span></div>';
     if (ex.desc) h += '<div class="ex-desc">' + ex.desc + '</div>';
     h += '<div class="ex-code">' + fragmentHtml(ex, selfId) + '</div>';
@@ -272,6 +274,18 @@
     };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, function () { fallbackCopy(txt); done(); });
     else { fallbackCopy(txt); done(); }
+  });
+  // «Скачать .tex»: всегда готовый документ, имя файла — по статье и номеру примера
+  main.addEventListener('click', function (ev) {
+    var b = ev.target.closest('button[data-down]');
+    if (!b) return;
+    var box = b.closest('.example'), ex = curExamples[+box.dataset.i];
+    var name = ((box.dataset.self || 'expl3').replace(/[^\w-]+/g, '-') + '-' + (+box.dataset.i + 1)) + '.tex';
+    var url = URL.createObjectURL(new Blob([asDocument(ex)], { type: 'application/x-tex;charset=utf-8' }));
+    var a = document.createElement('a'); a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    announce('Файл ' + name + ' скачан');
   });
   function fallbackCopy(t) {
     var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
@@ -543,6 +557,7 @@
       '<a href="#/modules">' + I.grid + '<div><b>Модули</b><span>Все разделы interface3 по темам</span></div></a>' +
       '<a href="#/tex">' + I.help + '<div><b>Справка TeX</b><span>Раскрытие, коды категорий, регистры</span></div></a>' +
       '<a href="#/index">' + I.list + '<div><b>Указатель</b><span>Все имена по алфавиту</span></div></a>' +
+      '<a href="#/new">' + I.file + '<div><b>Что нового</b><span>Новые и изменённые функции по датам</span></div></a>' +
       '</div>';
     h += '<h2 id="guide">Основы expl3</h2>' + (D.guide || '');
     curExamples.forEach(function (ex, i) { h += exampleHtml(ex, i); });
@@ -563,7 +578,7 @@
     all.sort(function (a, b) { return key(a[0]) < key(b[0]) ? -1 : key(a[0]) > key(b[0]) ? 1 : 0; });
     var groups = {}, order = [];
     all.forEach(function (x) { var L = key(x[0]).charAt(0).toUpperCase(); if (!/[A-Z]/.test(L)) L = '#'; if (!groups[L]) { groups[L] = []; order.push(L); } groups[L].push(x); });
-    var h = '<h1>Алфавитный указатель</h1><p class="lead">Все имена (' + all.length + '). Префиксы <code>l_</code>, <code>g_</code>, <code>c_</code> при сортировке не учитываются.</p><div class="letters">' +
+    var h = '<h1>Алфавитный указатель</h1><p class="lead">Все имена (' + all.length + '). Новые и изменённые функции по датам — на странице <a href="#/new">«Что нового»</a>. Префиксы <code>l_</code>, <code>g_</code>, <code>c_</code> при сортировке не учитываются.</p><div class="letters">' +
       order.map(function (L) { return '<a href="#/index" data-letter="' + L + '">' + L + '</a>'; }).join('') + '</div><div class="alpha">';
     order.forEach(function (L) {
       h += '<h3 id="L-' + L + '">' + L + '</h3>';
@@ -573,6 +588,27 @@
     main.querySelectorAll('[data-letter]').forEach(function (a) {
       a.addEventListener('click', function (ev) { ev.preventDefault(); document.getElementById('L-' + a.dataset.letter).scrollIntoView(); });
     });
+  }
+
+  // «Что нового»: статьи с пометками New/Updated из interface3, свежие сверху
+  function pageNew() {
+    curExamples = [];
+    var items = [];
+    D.entries.forEach(function (e) {
+      if (e.new) items.push([e.new, 'new', e]);
+      if (e.upd) items.push([e.upd, 'upd', e]);
+    });
+    items.sort(function (a, b) { return a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0; });
+    var h = '<h1>Что нового в expl3</h1><p class="lead">Функции, которые появились или изменились в ядре LaTeX, по пометкам <i>New</i> и <i>Updated</i> из interface3' +
+      (D.release ? ' (выпуск ' + esc(D.release) + ')' : '') + '. Если функция новее вашего дистрибутива, обновите TeX Live или MiKTeX.</p>';
+    var year = '';
+    items.forEach(function (x) {
+      var y = x[0].slice(0, 4);
+      if (y !== year) { h += (year ? '</ul>' : '') + '<h2>' + y + '</h2><ul class="news">'; year = y; }
+      h += '<li><span class="news-date">' + esc(x[0]) + '</span><span class="badge' + (x[1] === 'new' ? ' new">Новое' : '">Обновлено') + '</span>' +
+        '<a href="#/e/' + x[2].id + '"><code>' + esc(x[2].title) + '</code></a><span class="news-sum">' + esc(firstSentence(x[2])) + '</span></li>';
+    });
+    render(h + (year ? '</ul>' : ''), 'Что нового — справочник expl3', null, '#/new');
   }
 
   function pageGlossaryItem(key) {
@@ -668,7 +704,10 @@
   // подвал страницы: ссылка на репозиторий с исходниками сайта
   var FOOTER = '<footer class="site-foot"><a href="' + REPO + '" target="_blank" rel="noopener">' +
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>' +
-    '<span>Справочник на GitHub: исходники, замечания и предложения</span></a></footer>';
+    '<span>Справочник на GitHub: исходники, замечания и предложения</span></a>' +
+    '<p class="lic">Тексты — <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.ru" target="_blank" rel="noopener">CC BY-SA 4.0</a>, ' +
+    'код примеров — <a href="https://creativecommons.org/publicdomain/zero/1.0/deed.ru" target="_blank" rel="noopener">CC0</a> (<a href="' + REPO + '/blob/main/LICENSE.md" target="_blank" rel="noopener">подробнее</a>). ' +
+    'Основано на <a href="interface3.pdf" target="_blank" rel="noopener">interface3</a> © The LaTeX Project, LPPL 1.3c.</p></footer>';
 
   function render(h, title, entryId, tocHash) {
     main.innerHTML = '<article class="doc">' + h + '</article>' + FOOTER;
@@ -775,7 +814,7 @@
 
   // активный пункт верхнего меню
   function markNav(hash) {
-    var k = /^#\/(m|e|modules)/.test(hash) ? 'modules' : /^#\/(g|tex)/.test(hash) ? 'tex' : /^#\/(c\/|cases)/.test(hash) ? 'cases' : hash === '#/index' ? 'index' : 'home';
+    var k = /^#\/(m|e|modules)/.test(hash) ? 'modules' : /^#\/(g|tex)/.test(hash) ? 'tex' : /^#\/(c\/|cases)/.test(hash) ? 'cases' : hash === '#/index' || hash === '#/new' ? 'index' : 'home';
     document.querySelectorAll('.top-links a').forEach(function (a) {
       if (a.dataset.nav === k) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
@@ -793,6 +832,7 @@
     else if (h === '#/tex') pageGlossary();
     else if (h === '#/modules') pageModules();
     else if (h === '#/index') pageIndex();
+    else if (h === '#/new') pageNew();
     else pageHome();
     if (!(m && m[2])) window.scrollTo(0, 0);
   }

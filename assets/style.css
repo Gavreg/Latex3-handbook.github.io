@@ -382,4 +382,14 @@ a.gl:hover { color: var(--accent); }
 .site-foot a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--muted); text-decoration: none; }
 .site-foot a:hover { color: var(--text); text-decoration: underline; }
 .site-foot svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+.site-foot .lic { margin: 4px 0 16px; font-size: 13px; line-height: 1.5; }
+.site-foot .lic a { display: inline; min-height: 0; text-decoration: underline; }
 @media print { .site-foot { display: none; } }
+
+/* «Что нового» */
+.news { list-style: none; padding: 0; margin: 0 0 24px; }
+.news li { display: grid; grid-template-columns: 6.5em 7.5em minmax(0, 1fr); gap: 4px 12px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.news-date { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.news .badge { justify-self: start; }
+.news-sum { grid-column: 3; font-size: 14px; color: var(--muted); }
+@media (max-width: 640px) { .news li { grid-template-columns: auto minmax(0, 1fr); } .news li > a, .news-sum { grid-column: 1 / -1; } }
