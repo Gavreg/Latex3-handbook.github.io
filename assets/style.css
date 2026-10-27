@@ -331,6 +331,10 @@ a.gl:hover { color: var(--accent); }
 .page-toc { display: none; }
 @media (min-width: 1360px) {
   .main { grid-template-columns: minmax(0, 900px) 220px; }
+  /* статья и «На этой странице» — в первой строке сетки, подвал — во второй */
+  .doc { grid-row: 1; grid-column: 1; }
+  .page-toc { grid-row: 1; grid-column: 2; }
+  .site-foot { grid-row: 2; }
   .page-toc { display: block; position: sticky; top: calc(var(--top-h) + 32px); align-self: start; max-height: calc(100vh - var(--top-h) - 64px);
     overflow-y: auto; font-size: 13.5px; border-left: 1px solid var(--border); padding-left: 14px; }
   .page-toc .pt-head { font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
